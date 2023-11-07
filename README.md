@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/gopher.png" width="500"></p>
+<p align="center"><img src="assets/gopher.png" width="350"></p>
 
 <h1 align="center">
   go-amqp

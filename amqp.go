@@ -12,11 +12,11 @@ type client struct {
 	conn *amqp.Connection
 }
 
-// NewClient Connects and returns the AMQP Client that implements the AMQP interface.
-func NewClient(URL string, conf ...Config) (c AMQP, err error) {
+// NewClient connects to the AMQP server using the provided configuration, and returns the AMQP Client.
+func NewClient(URL string, conf ...Config) (c Client, err error) {
 	amqpConfig := amqp.Config{}
 	if len(conf) > 0 {
-		amqpConfig = amqp.Config(conf[0])
+		amqpConfig = conf[0].toAMQPConfig()
 	}
 
 	conn, err := amqp.DialConfig(URL, amqpConfig)
@@ -80,10 +80,7 @@ func (c *client) StartExchange(exchangeName string, exchangeType ExchangeType, c
 		config.Args.toAmqpTable(),
 	)
 
-	e = &amqpExchange{
-		name:    exchangeName,
-		channel: ch,
-	}
+	e = newExchange(exchangeName, ch)
 	return
 }
 
@@ -108,10 +105,6 @@ func (c *client) CreatePublisher(exchangeName string, NoWait ...bool) (p Publish
 		}
 	}
 
-	p = &amqpPublisher{
-		exchangeName,
-		channel,
-		waitConfirmation,
-	}
+	p = newPublisher(exchangeName, channel)
 	return
 }

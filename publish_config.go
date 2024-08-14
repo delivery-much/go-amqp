@@ -1,5 +1,12 @@
 package amqp
 
+import (
+	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+// PublishConfig represents the configuration to publish a message
 type PublishConfig struct {
 	// When you set the mandatory flag to true while publishing a message,
 	// it indicates that the message must be routed to at least one queue.
@@ -23,4 +30,41 @@ type PublishConfig struct {
 	//
 	// default: false
 	WaitConfirmation bool
+
+	// Message specific fields
+
+	// Application or exchange specific fields,
+	// the headers exchange will inspect this field.
+	Headers Table
+
+	ContentType     string    // MIME content type
+	ContentEncoding string    // MIME content encoding
+	DeliveryMode    uint8     // Transient (0 or 1) or Persistent (2)
+	Priority        uint8     // 0 to 9
+	CorrelationId   string    // correlation identifier
+	ReplyTo         string    // address to to reply to (ex: RPC)
+	Expiration      string    // message expiration spec
+	MessageId       string    // message identifier
+	Timestamp       time.Time // message timestamp
+	Type            string    // message type name
+	UserId          string    // creating user id - ex: "guest"
+	AppId           string    // creating application id
+}
+
+// getPublishingFromConfig returns a new amqp.Publishing struct with no body, using the PublishConfig values
+func (c PublishConfig) getPublishingFromConfig() amqp.Publishing {
+	return amqp.Publishing{
+		ContentType:     c.ContentType,
+		ContentEncoding: c.ContentEncoding,
+		DeliveryMode:    c.DeliveryMode,
+		Priority:        c.Priority,
+		CorrelationId:   c.CorrelationId,
+		ReplyTo:         c.ReplyTo,
+		Expiration:      c.Expiration,
+		MessageId:       c.MessageId,
+		Timestamp:       c.Timestamp,
+		Type:            c.Type,
+		UserId:          c.UserId,
+		AppId:           c.AppId,
+	}
 }

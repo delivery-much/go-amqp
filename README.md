@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/gopher.png" width="500"></p>
+<p align="center"><img src="assets/gopher.png" width="350"></p>
 
 <h1 align="center">
   go-amqp
@@ -13,6 +13,8 @@
 - [Pre and Post Handle Functions](#pre-and-post-handle-functions)
 - [Creating a Message Publisher](#creating-a-message-publisher)
 - [Publishing Messages](#publishing-messages)
+  - [Publish function](#publish-function)
+  - [PublishJSON function](#publish-function)
 
 ## Overview
 **go-amqp** is an abstraction layer for the [rabbitmq original library](https://github.com/rabbitmq/amqp091-go).
@@ -77,7 +79,7 @@ This code is a little messy mainly because:
 
 - It is hard to understand directly the exchange and queue configuration since the configuration values are unnamed booleans ❌
 - There are way too many steps in the configuration, and those steps seem a little redundant ❌
-- Also, if you wanted to consume messages from that queue, you would need to implement your own consume function ❌
+- Also, if you wanted to consume messages from that queue, you would need to implement your own message reading loop logic using channels ❌
 
 Using the **go-amqp** library, you could do the same thing like this:
 
@@ -106,13 +108,19 @@ q, err := e.BindQueue("my-queue", "my-routing-key", amqp.QueueBindConfig{
 if err != nil {
   return
 }
+
+// define your consume logic
+err := q.Consume(func(context.Context, Delivery) HandleResponse{ ... })
+if err != nil {
+  return
+}
 ```
 
 This code is a little better because:
 
 - The queue and exchange configurations are received in optional configuration objects, so the values are documented and named, making them easier to read ✅
 - The **go-amqp** library uses object orientation (exchanges and queues are defined as objects), so you can define your queues inside an exchange, which makes your code easier to reuse and understand ✅
-- The library mitigates many of the steps necessary to declare and consume your queues, making the whole process a lot more friendly ✅
+- The library mitigates many of the steps necessary to declare and consume your queues, and implements the message  reading loop for you, so the whole process a lot more friendly ✅
 
 This is just a sample of how the **go-amqp** library was made to make the developers' lives easier. The following topics in the documentation explain the library and its functionalities in much more detail.
 
@@ -508,6 +516,8 @@ Please note that not all AMQP servers support **confirmation mode**, so you may 
 
 ## Publishing messages
 
+### Publish function
+
 After you have [created your publisher](#creating-a-message-publisher), you can use the `Publish` function to publish messages on the AMQP server.
 
 Ex.:
@@ -527,12 +537,11 @@ func main() {
     return
   }
 
-  message := goamqp.Publishing{
-    Body: []byte("my message!"),
-  }
+  body := []byte("my message!")
 
-  err = pub.Publish(message, "my-routing-key", goamqp.PublishConfig{
+  err = pub.Publish(body, "my-routing-key", goamqp.PublishConfig{
     WaitConfirmation: true,
+    MessageId: "my message's id"
   })
   if err != nil {
     return
@@ -541,6 +550,46 @@ func main() {
 ```
 
 The publishing action receives the following parameters:
-- The message to publish, which is a struct that follows the [RabbitMQ original library Publishing struct](https://github.com/rabbitmq/amqp091-go/blob/main/types.go#L159).
+- The message's body, wich must be a valid string in `[]bytes`format.
 - The routing key used to route the message. If no routing key is necessary, you can set this value as `""`.
-- An optional publish configuration. In this configuration, you can use the `WaitConfirmation` flag to make the message publishing process wait for a confirmation from the server if your [publisher was created in confirmation mode](#creating-a-message-publisher).
+- An optional publish configuration, that has all the fields in the [RabbitMQ original library Publishing struct](https://github.com/rabbitmq/amqp091-go/blob/main/types.go#L159). Also, in this configuration, you can use the `WaitConfirmation` flag to make the message publishing process wait for a confirmation from the server if your [publisher was created in confirmation mode](#creating-a-message-publisher).
+
+### PublishJSON function
+Same as the [Publish function](#publish-function), but it encodes the received body as a JSON string before publishing. So the body needs to be a valid JSON representation (i.e.: A json string, a `map[string]any` value, or a struct with json tags)
+
+Ex.:
+```go
+import (
+  goamqp "github.com/delivery-much/go-amqp"
+)
+
+type msgPayload struct {
+  Field1 string `json:"field1"`
+  Field2 string `json:"field2"`
+}
+
+func main() {
+  cl, err := goamqp.NewClient("my-amqp-url", goamqp.Config{})
+  if err != nil {
+    return
+  }
+
+  pub, err := cl.CreatePublisher("my-exchange-name", false)
+  if err != nil {
+    return
+  }
+
+  body := msgPayload{
+    Field1: "value1",
+    Field2: "value2",
+  }
+
+  err = pub.Publish(body, "my-routing-key", goamqp.PublishConfig{
+    WaitConfirmation: true,
+    MessageId: "my message's id",
+  })
+  if err != nil {
+    return
+  }
+}
+```

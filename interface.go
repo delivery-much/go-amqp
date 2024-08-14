@@ -1,7 +1,19 @@
 package amqp
 
-// AMQP represents a AMQP connection, and contains functions to manage the AMQP client
-type AMQP interface {
+import (
+	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+// ConnectedStruct represents a struct that's connected to an AMQP channel
+type ConnectedStruct interface {
+	// OnClose defines the function to execute when the AMQP channel for this struct is closed in any way.
+	//
+	// OnClose will start a new goroutine that listens to this connection 'closed' events.
+	OnClose(f func(err *amqp.Error))
+}
+
+// Client represents a Client connection, and contains functions to manage the AMQP client
+type Client interface {
 	// Close closes the AMQP connection
 	Close() error
 	// Ping checks if the AMQP connection is active
@@ -21,6 +33,7 @@ type AMQP interface {
 
 // Exchange represents a AMQP message exchange
 type Exchange interface {
+	ConnectedStruct
 	// BindQueue declares a new queue on the exchange given a queue config and binds it to the exchange
 	BindQueue(queueName, routingKey string, conf ...QueueBindConfig) (Queue, error)
 
@@ -40,7 +53,10 @@ type Exchange interface {
 
 // Queue represents a AMQP queue
 type Queue interface {
-	// Consume subscribes a consumer in the routing key to handle the messages with the handler function
+	// Consume subscribes a consumer in the routing key to handle the messages.
+	//
+	// Consume will start a new goroutine that listens to message publishings
+	// and handles them with the provided handler function
 	Consume(handlerFn HandlerFunc, conf ...ConsumeConfig) error
 
 	// Before adds functions that will be called in the queue before the message handling
@@ -63,10 +79,18 @@ type Queue interface {
 
 // Publisher represents a AMQP message publisher
 type Publisher interface {
-	// Publish publishes a message on the publisher exchange.
-	// The user can also provide a routing-key to publish the message and some extra configuration, if needed.
+	ConnectedStruct
+	// Publish publishes a message payload, in bytes format, on the publisher exchange.
+	// The user can also provide a routing-key to publish the message and some extra configuration for that message, if needed.
 	//
 	// It is important to note that the message publishing, by default, is asynchronous.
 	// However, you can make it synchronous by setting the WaitConfirmation flag from the PublishConfig as true.
-	Publish(m Publishing, key string, conf ...PublishConfig) error
+	Publish(payload []byte, key string, conf ...PublishConfig) error
+
+	// PublishJSON encodes the 'payload' param into a json string, and publishes it on the publisher exchange.
+	// The user can also provide a routing-key to publish the message and some extra configuration for that message, if needed.
+	//
+	// It is important to note that the message publishing, by default, is asynchronous.
+	// However, you can make it synchronous by setting the WaitConfirmation flag from the PublishConfig as true.
+	PublishJSON(payload any, key string, conf ...PublishConfig) error
 }

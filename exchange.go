@@ -7,9 +7,9 @@ import (
 )
 
 type amqpExchange struct {
+	connectedStruct
 	name string
 
-	// exchangeChannel its the amqp channel that the Exchange is on
 	channel *amqp.Channel
 
 	// preHandleFuncs are the functions that will be called before the message handling
@@ -17,6 +17,16 @@ type amqpExchange struct {
 
 	// postHandleFuncs are the functions that will be called after the message handling
 	postHandleFuncs []PostHandleFunc
+}
+
+func newExchange(exchangeName string, ch *amqp.Channel) *amqpExchange {
+	return &amqpExchange{
+		name:    exchangeName,
+		channel: ch,
+		connectedStruct: connectedStruct{
+			ch: ch,
+		},
+	}
 }
 
 // BindQueue declares a new queue on the exchange given a queue config and binds it to the exchange
